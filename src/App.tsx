@@ -153,8 +153,39 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const imported = JSON.parse(ev.target?.result as string);
-        setData(imported);
+        const parsed = JSON.parse(ev.target?.result as string);
+        
+        const mergePlan = (importedPlan: any): Plan => {
+          return {
+            id: importedPlan.id || Math.random().toString(36).substr(2, 9),
+            ...DEFAULT_DATA,
+            ...importedPlan,
+            profile: { ...DEFAULT_DATA.profile, ...importedPlan.profile },
+            retirement: { ...DEFAULT_DATA.retirement, ...importedPlan.retirement },
+            accounts: importedPlan.accounts || DEFAULT_DATA.accounts,
+            income: importedPlan.income || DEFAULT_DATA.income,
+            expenses: importedPlan.expenses || DEFAULT_DATA.expenses,
+            milestones: importedPlan.milestones || DEFAULT_DATA.milestones,
+          };
+        };
+
+        let plansStateToSet: PlansState;
+        if (parsed.plans && Array.isArray(parsed.plans) && parsed.plans.length > 0) {
+          plansStateToSet = {
+            ...parsed,
+            plans: parsed.plans.map(mergePlan)
+          };
+        } else if (parsed.profile) {
+          // Migration from AppData to PlansState
+          plansStateToSet = {
+            currentPlanId: 'default',
+            plans: [mergePlan({ ...parsed, id: 'default' })]
+          };
+        } else {
+          throw new Error('Invalid file structure');
+        }
+        
+        setPlansState(plansStateToSet);
         alert('Data imported successfully!');
       } catch (err) {
         alert('Invalid JSON file');
