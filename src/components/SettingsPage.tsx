@@ -13,6 +13,8 @@ interface SettingsPageProps {
 export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }: SettingsPageProps) => {
   const [localProfile, setLocalProfile] = useState(profile);
 
+  const [planToDelete, setPlanToDelete] = useState<string | null>(null);
+
   useEffect(() => {
     setLocalProfile(profile);
   }, [profile]);
@@ -47,13 +49,31 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
       try {
         const parsed = JSON.parse(event.target?.result as string);
         let plansStateToSet: PlansState;
+
+        const mergePlan = (importedPlan: any): Plan => {
+          return {
+            id: importedPlan.id || Math.random().toString(36).substr(2, 9),
+            ...DEFAULT_DATA,
+            ...importedPlan,
+            profile: { ...DEFAULT_DATA.profile, ...importedPlan.profile },
+            retirement: { ...DEFAULT_DATA.retirement, ...importedPlan.retirement },
+            accounts: importedPlan.accounts || DEFAULT_DATA.accounts,
+            income: importedPlan.income || DEFAULT_DATA.income,
+            expenses: importedPlan.expenses || DEFAULT_DATA.expenses,
+            milestones: importedPlan.milestones || DEFAULT_DATA.milestones,
+          };
+        };
+
         if (parsed.plans && Array.isArray(parsed.plans) && parsed.plans.length > 0) {
-          plansStateToSet = parsed;
+          plansStateToSet = {
+            ...parsed,
+            plans: parsed.plans.map(mergePlan)
+          };
         } else if (parsed.profile) {
           // Migration from AppData to PlansState
           plansStateToSet = {
             currentPlanId: 'default',
-            plans: [{ id: 'default', ...parsed }]
+            plans: [mergePlan({ ...parsed, id: 'default' })]
           };
         } else {
           throw new Error('Invalid file structure');
@@ -93,8 +113,30 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
     });
   };
 
+  const deletePlan = (id: string) => {
+    if (plansState.plans.length <= 1) return;
+    const newPlans = plansState.plans.filter(p => p.id !== id);
+    setPlansState({
+      ...plansState,
+      plans: newPlans,
+      currentPlanId: plansState.currentPlanId === id ? newPlans[0].id : plansState.currentPlanId
+    });
+  };
+
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+      {planToDelete && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-surface p-6 rounded-2xl border border-border space-y-4 max-w-sm w-full">
+            <h3 className="text-lg font-black text-slate-100">Delete Plan?</h3>
+            <p className="text-sm text-slate-400">Are you sure you want to delete this plan? This action cannot be undone.</p>
+            <div className="flex gap-4">
+              <button onClick={() => setPlanToDelete(null)} className="flex-1 px-4 py-2 bg-slate-700 text-slate-100 font-bold text-sm rounded-xl">Cancel</button>
+              <button onClick={() => { deletePlan(planToDelete); setPlanToDelete(null); }} className="flex-1 px-4 py-2 bg-red-600 text-white font-bold text-sm rounded-xl">Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col gap-1">
         <h2 className="text-2xl font-black tracking-tight text-slate-100">Settings</h2>
         <p className="text-sm text-slate-500">Core planning assumptions & Plan management</p>
@@ -102,7 +144,7 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
 
       <div className="p-6 rounded-2xl border border-border bg-surface space-y-6">
         <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Plan Management</p>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap gap-4 items-center">
           <select 
             className="bg-bg border border-border-2 rounded-xl p-3 text-sm font-bold text-slate-200 outline-none focus:border-emerald-400"
             value={plansState.currentPlanId}
@@ -114,6 +156,7 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
           </select>
           <button onClick={addPlan} className="px-4 py-2 bg-emerald-400 text-slate-900 font-black tracking-tight text-sm rounded-xl hover:bg-emerald-300 transition-all">+ New Plan</button>
           <button onClick={copyPlan} className="px-4 py-2 bg-slate-700 text-slate-100 font-black tracking-tight text-sm rounded-xl hover:bg-slate-600 transition-all">Copy Plan</button>
+          <button onClick={() => setPlanToDelete(plansState.currentPlanId)} className="px-4 py-2 bg-red-900/50 text-red-400 font-black tracking-tight text-sm rounded-xl hover:bg-red-900 transition-all">Delete Plan</button>
         </div>
       </div>
 
