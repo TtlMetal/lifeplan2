@@ -32,10 +32,11 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
   };
 
   const addPlan = () => {
+    const newPlanNumber = plansState.plans.length + 1;
     const newPlan: Plan = {
       ...DEFAULT_DATA,
       id: Math.random().toString(36).substr(2, 9),
-      profile: { ...DEFAULT_DATA.profile, name: 'New Plan' }
+      profile: { ...DEFAULT_DATA.profile, name: `New Plan ${newPlanNumber}` }
     };
     setPlansState({
       ...plansState,
@@ -77,7 +78,10 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
             {plansState.plans.length > 1 ? (
               <>
                 <h3 className="text-lg font-black text-slate-100">Delete Plan?</h3>
-                <p className="text-sm text-slate-400">Are you sure you want to delete this plan? This action cannot be undone.</p>
+                <p className="text-sm text-slate-400">
+                  Are you sure you want to delete <span className="text-slate-100 font-bold">"{plansState.plans.find(p => p.id === planToDelete)?.profile.name}"</span>? 
+                  This action cannot be undone.
+                </p>
                 <div className="flex gap-4">
                   <button onClick={() => setPlanToDelete(null)} className="flex-1 px-4 py-2 bg-slate-700 text-slate-100 font-bold text-sm rounded-xl">Cancel</button>
                   <button onClick={() => { deletePlan(planToDelete); setPlanToDelete(null); }} className="flex-1 px-4 py-2 bg-red-600 text-white font-bold text-sm rounded-xl">Delete</button>

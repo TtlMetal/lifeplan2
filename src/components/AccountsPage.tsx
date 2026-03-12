@@ -64,26 +64,26 @@ export const AccountsPage = ({ accounts, setAccounts, onAdd, onEdit, onDelete, o
         </button>
       </div>
 
-      <div className="p-6 rounded-2xl border border-border bg-surface overflow-x-auto custom-scrollbar">
-        <table className="w-full text-left border-collapse min-w-[600px]">
-          <thead>
-            <tr>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Account</th>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Type</th>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Balance</th>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border border-l">Monthly Contrib.</th>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Yearly Contrib.</th>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Contrib Increase</th>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Employer Match</th>
-              <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            <DndContext 
-              sensors={sensors}
-              collisionDetection={closestCenter}
-              onDragEnd={handleDragEnd}
-            >
+      <DndContext 
+        sensors={sensors}
+        collisionDetection={closestCenter}
+        onDragEnd={handleDragEnd}
+      >
+        <div className="p-6 rounded-2xl border border-border bg-surface overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left border-collapse min-w-[600px]">
+            <thead>
+              <tr>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Account</th>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Type</th>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Balance</th>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border border-l">Monthly Contrib.</th>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Yearly Contrib.</th>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Contrib Increase</th>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Employer Match</th>
+                <th className="p-3 text-[10px] font-bold uppercase tracking-widest text-slate-500 border-b border-border">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
               <SortableContext 
                 items={accounts.map(a => a.id)}
                 strategy={verticalListSortingStrategy}
@@ -98,10 +98,10 @@ export const AccountsPage = ({ accounts, setAccounts, onAdd, onEdit, onDelete, o
                   />
                 ))}
               </SortableContext>
-            </DndContext>
-          </tbody>
-        </table>
-      </div>
+            </tbody>
+          </table>
+        </div>
+      </DndContext>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="p-5 rounded-2xl border border-border bg-emerald-500/5">

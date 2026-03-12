@@ -130,7 +130,7 @@ export const RetirementPage = ({ data, derived, setRetirement }: RetirementPageP
 
           <div className="pt-8 border-t border-border space-y-6">
             <div className="space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-1">
                 Invest Leftover Income
                 <div className="group relative">
                   <Info size={12} className="text-slate-600 cursor-help" />
@@ -138,7 +138,7 @@ export const RetirementPage = ({ data, derived, setRetirement }: RetirementPageP
                     See how increasing more of your take-home pay to investing can quicken your time to FIRE or increase your chances of success.
                   </div>
                 </div>
-              </p>
+              </div>
               <p className="text-[10px] text-slate-600 uppercase tracking-widest">How much of your surplus income (after expenses & contributions) should be invested?</p>
             </div>
             <div className="flex items-center gap-6">
