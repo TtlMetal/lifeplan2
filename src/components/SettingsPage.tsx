@@ -46,7 +46,17 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
     reader.onload = (event) => {
       try {
         const parsed = JSON.parse(event.target?.result as string);
-        setPlansState(parsed);
+        let plansStateToSet: PlansState;
+        if (parsed.plans) {
+          plansStateToSet = parsed;
+        } else {
+          // Migration from AppData to PlansState
+          plansStateToSet = {
+            currentPlanId: 'default',
+            plans: [{ id: 'default', ...parsed }]
+          };
+        }
+        setPlansState(plansStateToSet);
       } catch (e) {
         alert('Invalid file');
       }
