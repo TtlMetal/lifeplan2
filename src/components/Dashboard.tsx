@@ -26,7 +26,7 @@ export const Dashboard = ({ data, derived, projection }: DashboardProps) => {
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="flex flex-col gap-1">
-        <h2 className="text-2xl font-black tracking-tight text-slate-100">{p.name} · Dashboard</h2>
+        <h2 className="text-2xl font-black tracking-tight text-slate-100">{p.name} · DASHBOARDZZZ</h2>
         <p className="text-sm text-slate-500">Your living financial snapshot</p>
       </div>
 
