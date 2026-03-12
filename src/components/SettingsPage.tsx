@@ -74,12 +74,24 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
       {planToDelete && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface p-6 rounded-2xl border border-border space-y-4 max-w-sm w-full">
-            <h3 className="text-lg font-black text-slate-100">Delete Plan?</h3>
-            <p className="text-sm text-slate-400">Are you sure you want to delete this plan? This action cannot be undone.</p>
-            <div className="flex gap-4">
-              <button onClick={() => setPlanToDelete(null)} className="flex-1 px-4 py-2 bg-slate-700 text-slate-100 font-bold text-sm rounded-xl">Cancel</button>
-              <button onClick={() => { deletePlan(planToDelete); setPlanToDelete(null); }} className="flex-1 px-4 py-2 bg-red-600 text-white font-bold text-sm rounded-xl">Delete</button>
-            </div>
+            {plansState.plans.length > 1 ? (
+              <>
+                <h3 className="text-lg font-black text-slate-100">Delete Plan?</h3>
+                <p className="text-sm text-slate-400">Are you sure you want to delete this plan? This action cannot be undone.</p>
+                <div className="flex gap-4">
+                  <button onClick={() => setPlanToDelete(null)} className="flex-1 px-4 py-2 bg-slate-700 text-slate-100 font-bold text-sm rounded-xl">Cancel</button>
+                  <button onClick={() => { deletePlan(planToDelete); setPlanToDelete(null); }} className="flex-1 px-4 py-2 bg-red-600 text-white font-bold text-sm rounded-xl">Delete</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <h3 className="text-lg font-black text-slate-100">Cannot Delete</h3>
+                <p className="text-sm text-slate-400">You must have at least one plan. If you want to start over, use the <span className="text-red-400 font-bold">Reset Demo</span> button in the sidebar.</p>
+                <div className="flex gap-4">
+                  <button onClick={() => setPlanToDelete(null)} className="flex-1 px-4 py-2 bg-slate-700 text-slate-100 font-bold text-sm rounded-xl">Got it</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
