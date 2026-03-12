@@ -47,14 +47,16 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
       try {
         const parsed = JSON.parse(event.target?.result as string);
         let plansStateToSet: PlansState;
-        if (parsed.plans) {
+        if (parsed.plans && Array.isArray(parsed.plans) && parsed.plans.length > 0) {
           plansStateToSet = parsed;
-        } else {
+        } else if (parsed.profile) {
           // Migration from AppData to PlansState
           plansStateToSet = {
             currentPlanId: 'default',
             plans: [{ id: 'default', ...parsed }]
           };
+        } else {
+          throw new Error('Invalid file structure');
         }
         setPlansState(plansStateToSet);
       } catch (e) {
