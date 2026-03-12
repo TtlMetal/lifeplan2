@@ -114,6 +114,7 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
   };
 
   const deletePlan = (id: string) => {
+    // Force sync comment
     if (plansState.plans.length <= 1) return;
     const newPlans = plansState.plans.filter(p => p.id !== id);
     setPlansState({
