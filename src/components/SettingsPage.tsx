@@ -31,61 +31,6 @@ export const SettingsPage = ({ plansState, setPlansState, profile, setProfile }:
     setProfile(updated);
   };
 
-  const exportPlans = () => {
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(plansState));
-    const downloadAnchorNode = document.createElement('a');
-    downloadAnchorNode.setAttribute("href", dataStr);
-    downloadAnchorNode.setAttribute("download", "plans.json");
-    document.body.appendChild(downloadAnchorNode);
-    downloadAnchorNode.click();
-    downloadAnchorNode.remove();
-  };
-
-  const importPlans = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      try {
-        const parsed = JSON.parse(event.target?.result as string);
-        let plansStateToSet: PlansState;
-
-        const mergePlan = (importedPlan: any): Plan => {
-          return {
-            id: importedPlan.id || Math.random().toString(36).substr(2, 9),
-            ...DEFAULT_DATA,
-            ...importedPlan,
-            profile: { ...DEFAULT_DATA.profile, ...importedPlan.profile },
-            retirement: { ...DEFAULT_DATA.retirement, ...importedPlan.retirement },
-            accounts: importedPlan.accounts || DEFAULT_DATA.accounts,
-            income: importedPlan.income || DEFAULT_DATA.income,
-            expenses: importedPlan.expenses || DEFAULT_DATA.expenses,
-            milestones: importedPlan.milestones || DEFAULT_DATA.milestones,
-          };
-        };
-
-        if (parsed.plans && Array.isArray(parsed.plans) && parsed.plans.length > 0) {
-          plansStateToSet = {
-            ...parsed,
-            plans: parsed.plans.map(mergePlan)
-          };
-        } else if (parsed.profile) {
-          // Migration from AppData to PlansState
-          plansStateToSet = {
-            currentPlanId: 'default',
-            plans: [mergePlan({ ...parsed, id: 'default' })]
-          };
-        } else {
-          throw new Error('Invalid file structure');
-        }
-        setPlansState(plansStateToSet);
-      } catch (e) {
-        alert('Invalid file');
-      }
-    };
-    reader.readAsText(file);
-  };
-
   const addPlan = () => {
     const newPlan: Plan = {
       ...DEFAULT_DATA,

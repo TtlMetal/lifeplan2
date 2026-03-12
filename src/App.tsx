@@ -22,12 +22,15 @@ export default function App() {
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed.plans) return parsed; // Already migrated
+        if (parsed.plans && Array.isArray(parsed.plans) && parsed.plans.length > 0) return parsed; // Already migrated
         // Migration from AppData to PlansState
-        return {
-          currentPlanId: 'default',
-          plans: [{ id: 'default', ...parsed }]
-        };
+        if (parsed.profile) {
+          return {
+            currentPlanId: 'default',
+            plans: [{ id: 'default', ...parsed }]
+          };
+        }
+        throw new Error('Invalid data');
       } catch (e) {
         return { currentPlanId: 'default', plans: [{ id: 'default', ...DEFAULT_DATA }] };
       }
@@ -139,11 +142,11 @@ export default function App() {
 
   // Handlers
   const handleExport = () => {
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(plansState, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lifeplan-backup-${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `lifeplan-all-plans-${new Date().toISOString().split('T')[0]}.json`;
     a.click();
   };
 
@@ -153,33 +156,40 @@ export default function App() {
     const reader = new FileReader();
     reader.onload = (ev) => {
       try {
-        const parsed = JSON.parse(ev.target?.result as string);
+        const fileContent = ev.target?.result as string;
+        if (!fileContent) throw new Error('Empty file');
+        const parsed = JSON.parse(fileContent);
         
         const mergePlan = (importedPlan: any): Plan => {
+          const id = importedPlan.id || Math.random().toString(36).substr(2, 9);
           return {
-            id: importedPlan.id || Math.random().toString(36).substr(2, 9),
             ...DEFAULT_DATA,
             ...importedPlan,
-            profile: { ...DEFAULT_DATA.profile, ...importedPlan.profile },
-            retirement: { ...DEFAULT_DATA.retirement, ...importedPlan.retirement },
-            accounts: importedPlan.accounts || DEFAULT_DATA.accounts,
-            income: importedPlan.income || DEFAULT_DATA.income,
-            expenses: importedPlan.expenses || DEFAULT_DATA.expenses,
-            milestones: importedPlan.milestones || DEFAULT_DATA.milestones,
+            id,
+            profile: { ...DEFAULT_DATA.profile, ...(importedPlan.profile || {}) },
+            retirement: { ...DEFAULT_DATA.retirement, ...(importedPlan.retirement || {}) },
+            accounts: Array.isArray(importedPlan.accounts) ? importedPlan.accounts : DEFAULT_DATA.accounts,
+            income: Array.isArray(importedPlan.income) ? importedPlan.income : DEFAULT_DATA.income,
+            expenses: Array.isArray(importedPlan.expenses) ? importedPlan.expenses : DEFAULT_DATA.expenses,
+            milestones: Array.isArray(importedPlan.milestones) ? importedPlan.milestones : DEFAULT_DATA.milestones,
           };
         };
 
         let plansStateToSet: PlansState;
         if (parsed.plans && Array.isArray(parsed.plans) && parsed.plans.length > 0) {
+          const mergedPlans = parsed.plans.map(mergePlan);
           plansStateToSet = {
-            ...parsed,
-            plans: parsed.plans.map(mergePlan)
+            plans: mergedPlans,
+            currentPlanId: (parsed.currentPlanId && mergedPlans.some(p => p.id === parsed.currentPlanId))
+              ? parsed.currentPlanId
+              : mergedPlans[0].id
           };
-        } else if (parsed.profile) {
+        } else if (parsed.profile || parsed.accounts || parsed.income) {
           // Migration from AppData to PlansState
+          const singlePlan = mergePlan(parsed);
           plansStateToSet = {
-            currentPlanId: 'default',
-            plans: [mergePlan({ ...parsed, id: 'default' })]
+            currentPlanId: singlePlan.id,
+            plans: [singlePlan]
           };
         } else {
           throw new Error('Invalid file structure');
@@ -188,8 +198,11 @@ export default function App() {
         setPlansState(plansStateToSet);
         alert('Data imported successfully!');
       } catch (err) {
-        alert('Invalid JSON file');
+        console.error('Import error:', err);
+        alert('Error importing file: ' + (err instanceof Error ? err.message : 'Invalid format'));
       }
+      // Reset input value so same file can be imported again
+      e.target.value = '';
     };
     reader.readAsText(file);
   };
