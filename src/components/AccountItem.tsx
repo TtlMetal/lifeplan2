@@ -45,7 +45,7 @@ export const AccountItem = ({ account, onEdit, onDelete, onToggle }: AccountItem
         </div>
       </td>
       <td className="p-3 border-b border-slate-800">
-        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${typeBadgeClass(account.type)}`}>
+        <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold border ${typeBadgeClass(account.type)}`}>
           {typeLabel(account.type)}
         </span>
       </td>

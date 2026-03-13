@@ -79,7 +79,7 @@ export const IncomeExpensesPage = ({ type, items, milestones, onAdd, onEdit, onD
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-slate-200">{item.name}</span>
                       {!isIncome && (item as Expense).duringRetirement && (
-                        <span className="px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[9px] font-bold uppercase tracking-widest">Retirement</span>
+                        <span className="inline-block whitespace-nowrap px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[9px] font-bold uppercase tracking-widest">Retirement</span>
                       )}
                     </div>
                   </td>
@@ -90,7 +90,7 @@ export const IncomeExpensesPage = ({ type, items, milestones, onAdd, onEdit, onD
                     </div>
                   </td>
                   <td className="p-3 border-b border-slate-800">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
+                    <span className={`inline-block whitespace-nowrap px-2 py-0.5 rounded text-[10px] font-bold border ${
                       item.freq === 'monthly' 
                         ? 'bg-sky-500/10 text-sky-400 border-sky-500/20' 
                         : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
