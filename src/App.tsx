@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { AppData, Account, Income, Expense, Milestone, Frequency, AccountType, PlansState, Plan } from './types';
 import { DEFAULT_DATA, EXPENSE_CATS } from './constants';
-import { calculateProjection, resolveExpenses } from './services/projectionService';
+import { calculateProjection, resolveExpenses, resolveIncome } from './services/projectionService';
 import { Sidebar } from './components/Sidebar';
 import { Modal } from './components/Modal';
 import { Dashboard } from './components/Dashboard';
@@ -72,9 +72,10 @@ export default function App() {
     const wRate = ret.withdrawalRate / 100;
     const totalNW = data.accounts.filter(a => !a.isHidden).reduce((s, a) => s + a.balance, 0);
     const resolvedExp = resolveExpenses(data.expenses.filter(e => !e.isHidden), p.retirementAge, p.lifeExpectancy);
+    const resolvedInc = resolveIncome(data.income.filter(i => !i.isHidden), p.currentAge, p.retirementAge, p.lifeExpectancy);
     
-    const mIncome = data.income
-      .filter(i => !i.isHidden && p.currentAge >= i.startAge && p.currentAge < i.endAge)
+    const mIncome = resolvedInc
+      .filter(i => p.currentAge >= i.startAge && p.currentAge < i.endAge)
       .reduce((s, i) => {
         return s + (i.freq === 'monthly' ? i.amount : i.amount / 12);
       }, 0);
@@ -365,8 +366,8 @@ const ModalForm = ({ type, id, data, onSave, onCancel }: any) => {
   const [formData, setFormData] = useState(() => {
     if (initial) return { ...initial };
     if (type === 'account') return { name: '', type: 'taxable', balance: 0, contribution: 0, contributionFreq: 'monthly', match: 0, annualIncrease: 0, annualIncreaseType: 'amount', annualIncreaseInterval: 1 };
-    if (type === 'income') return { name: '', amount: 0, freq: 'monthly', startAge: data.profile.currentAge, endAge: data.profile.retirementAge, growthRate: data.profile.inflationRate, duringRetirement: false, isWorkingYears: true };
-    if (type === 'expense') return { name: '', amount: 0, freq: 'monthly', startAge: data.profile.currentAge, endAge: data.profile.lifeExpectancy, duringRetirement: false };
+    if (type === 'income') return { name: '', amount: 0, freq: 'monthly', startAge: data.profile.currentAge, endAge: data.profile.retirementAge, isUntilDeath: false, growthRate: data.profile.inflationRate, duringRetirement: false, isWorkingYears: true };
+    if (type === 'expense') return { name: '', amount: 0, freq: 'monthly', startAge: data.profile.currentAge, endAge: data.profile.lifeExpectancy, isUntilDeath: true, duringRetirement: false };
     if (type === 'milestone') return { name: '', age: data.profile.currentAge + 5, impact: 0, expenseImpact: 0 };
     return {};
   });
@@ -558,7 +559,27 @@ const ModalForm = ({ type, id, data, onSave, onCancel }: any) => {
                 </div>
                 <div className="space-y-1">
                   <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">End Age</label>
-                  <input type="number" className="w-full bg-bg border border-border-2 rounded-xl p-2 text-xs font-bold text-slate-200 outline-none focus:border-emerald-400" value={formData.endAge} onChange={e => update('endAge', parseInt(e.target.value) || 0)} />
+                  <div className="space-y-2">
+                    <input 
+                      type="number" 
+                      disabled={formData.isUntilDeath}
+                      className={`w-full bg-bg border border-border-2 rounded-xl p-2 text-xs font-bold outline-none focus:border-emerald-400 ${formData.isUntilDeath ? 'opacity-50 text-slate-500' : 'text-slate-200'}`} 
+                      value={formData.isUntilDeath ? data.profile.lifeExpectancy : formData.endAge} 
+                      onChange={e => update('endAge', parseInt(e.target.value) || 0)} 
+                    />
+                    <div className="flex items-center gap-2">
+                      <input 
+                        type="checkbox" 
+                        id="isUntilDeath"
+                        checked={formData.isUntilDeath || false} 
+                        onChange={e => update('isUntilDeath', e.target.checked)}
+                        className="w-3 h-3 rounded border-border-2 bg-bg text-emerald-400 focus:ring-emerald-400"
+                      />
+                      <label htmlFor="isUntilDeath" className="text-[9px] font-bold uppercase tracking-widest text-slate-500 cursor-pointer">
+                        Until Life Expectancy ({data.profile.lifeExpectancy})
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : (

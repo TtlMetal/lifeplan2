@@ -22,6 +22,7 @@ export interface Income {
   freq: Frequency;
   startAge: number;
   endAge: number;
+  isUntilDeath?: boolean;
   growthRate: number;
   isFixed?: boolean;
   duringRetirement?: boolean;
@@ -36,6 +37,7 @@ export interface Expense {
   freq: Frequency;
   startAge: number;
   endAge: number;
+  isUntilDeath?: boolean;
   duringRetirement: boolean;
   isFixed?: boolean;
   isHidden?: boolean;
@@ -84,6 +86,8 @@ export interface PlansState {
   plans: Plan[];
 }
 
+export type MonteCarloMode = 'standard' | 'historical' | 'allocation';
+
 export interface ProjectionRow {
   age: number;
   retired: boolean;
@@ -104,4 +108,5 @@ export interface ProjectionRow {
   p95?: number;
   survived?: number;
   sampleRuns?: number[];
+  sampleRunYears?: number[];
 }

@@ -104,7 +104,12 @@ export const IncomeExpensesPage = ({ type, items, milestones, onAdd, onEdit, onD
                     </td>
                   )}
                   <td className="p-3 border-b border-slate-800 text-slate-400 text-sm">
-                    {(item as Expense).duringRetirement ? `${retirementAge} – ${lifeExpectancy}` : `${item.startAge} – ${item.endAge}`}
+                    {(item as Expense).duringRetirement 
+                      ? `${retirementAge} – ${lifeExpectancy}` 
+                      : `${item.startAge} – ${item.isUntilDeath ? lifeExpectancy : item.endAge}`}
+                    {item.isUntilDeath && !((item as Expense).duringRetirement) && (
+                      <span className="ml-1 text-[8px] font-bold text-slate-600 uppercase tracking-tighter">(Life Exp)</span>
+                    )}
                   </td>
                   <td className={`p-3 border-b border-slate-800 font-mono font-bold ${isIncome ? 'text-emerald-400' : 'text-red-400'}`}>
                     {fmtUSD(annual)}

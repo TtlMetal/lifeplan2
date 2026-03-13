@@ -1,11 +1,29 @@
-import { AppData, ProjectionRow, Expense, Account, Income } from '../types';
+import { AppData, ProjectionRow, Expense, Account, Income, MonteCarloMode } from '../types';
+import { HISTORICAL_RETURNS } from '../constants/historicalReturns';
 
 export function resolveExpenses(expenses: Expense[], retirementAge: number, lifeExpectancy: number): Expense[] {
-  return expenses.map(e => e.duringRetirement ? { ...e, startAge: retirementAge, endAge: lifeExpectancy } : e);
+  return expenses.map(e => {
+    const start = e.duringRetirement ? retirementAge : e.startAge;
+    const end = e.isUntilDeath ? lifeExpectancy : (e.duringRetirement ? lifeExpectancy : e.endAge);
+    return { ...e, startAge: start, endAge: end };
+  });
 }
 
 export function resolveIncome(income: Income[], currentAge: number, retirementAge: number, lifeExpectancy: number): Income[] {
-  return income.map(i => i.isWorkingYears ? { ...i, startAge: currentAge, endAge: retirementAge } : i.duringRetirement ? { ...i, startAge: retirementAge, endAge: lifeExpectancy } : i);
+  return income.map(i => {
+    let start = i.startAge;
+    let end = i.isUntilDeath ? lifeExpectancy : i.endAge;
+    
+    if (i.isWorkingYears) {
+      start = currentAge;
+      end = retirementAge;
+    } else if (i.duringRetirement) {
+      start = retirementAge;
+      end = lifeExpectancy;
+    }
+    
+    return { ...i, startAge: start, endAge: end };
+  });
 }
 
 // Simple seeded PRNG (Mulberry32) for deterministic Monte Carlo results
@@ -32,7 +50,7 @@ function getAnnualIncrease(account: Account, yearsIn: number): number {
   }
 }
 
-export function calculateProjection(data: AppData, runs: number = 1): ProjectionRow[] {
+export function calculateProjection(data: AppData, runs: number = 1, mode: MonteCarloMode = 'standard'): ProjectionRow[] {
   const { profile, retirement, accounts, income, expenses, milestones } = data;
   const activeAccounts = accounts.filter(a => !a.isHidden);
   const activeIncome = resolveIncome(income.filter(i => !i.isHidden), profile.currentAge, profile.retirementAge, profile.lifeExpectancy);
@@ -49,6 +67,11 @@ export function calculateProjection(data: AppData, runs: number = 1): Projection
   // Initialize balances for each run
   let runBalances = Array.from({ length: runs }, () => 
     activeAccounts.reduce((acc, a) => ({ ...acc, [a.id]: a.balance }), {} as Record<string, number>)
+  );
+
+  // For Monte Carlo, assign each run a random starting year from historical data
+  const runStartYears = Array.from({ length: runs }, () => 
+    HISTORICAL_RETURNS[Math.floor(random() * HISTORICAL_RETURNS.length)].year
   );
 
   const runTotalsHistory: number[][] = Array.from({ length: runs }, () => []);
@@ -137,8 +160,32 @@ export function calculateProjection(data: AppData, runs: number = 1): Projection
     const endTotals = runBalances.map((balances, runIndex) => {
       let total = 0;
       for (const acc of activeAccounts) {
-        // Apply market return with variance if runs > 1. Cash accounts yield 0% return.
-        const r = acc.type === 'cash' ? 0 : ((profile.marketReturn / 100) + (runs > 1 ? (random() - 0.5) * 0.36 : 0));
+        // Apply market return. 
+        let r = 0;
+        if (acc.type !== 'cash') {
+          if (runs > 1) {
+            if (mode === 'historical') {
+              const startYear = runStartYears[runIndex];
+              const currentYearIndex = (HISTORICAL_RETURNS.findIndex(h => h.year === startYear) + yearsIn) % HISTORICAL_RETURNS.length;
+              r = HISTORICAL_RETURNS[currentYearIndex].return;
+            } else if (mode === 'allocation') {
+              // Asset Allocation Mode: 80/20 pre-retirement, 60/40 post-retirement
+              const startYear = runStartYears[runIndex];
+              const currentYearIndex = (HISTORICAL_RETURNS.findIndex(h => h.year === startYear) + yearsIn) % HISTORICAL_RETURNS.length;
+              const hist = HISTORICAL_RETURNS[currentYearIndex];
+              
+              const stockWeight = age < profile.retirementAge ? 0.8 : 0.6;
+              const bondWeight = 1 - stockWeight;
+              
+              r = (hist.return * stockWeight) + (hist.bondReturn * bondWeight);
+            } else {
+              // Revert to original uniform distribution logic: base +/- 18%
+              r = (profile.marketReturn / 100) + (runs > 1 ? (random() - 0.5) * 0.36 : 0);
+            }
+          } else {
+            r = profile.marketReturn / 100;
+          }
+        }
         
         balances[acc.id] = Math.max(0, balances[acc.id] * (1 + r));
         
@@ -229,6 +276,11 @@ export function calculateProjection(data: AppData, runs: number = 1): Projection
         runTotalsHistory[p5Index][i],
         runTotalsHistory[p50Index][i],
         runTotalsHistory[p95Index][i]
+      ];
+      row.sampleRunYears = [
+        runStartYears[p5Index],
+        runStartYears[p50Index],
+        runStartYears[p95Index]
       ];
     });
   }

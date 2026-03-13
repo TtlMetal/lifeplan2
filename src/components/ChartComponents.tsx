@@ -32,13 +32,16 @@ const CustomTooltip = ({ active, payload, label, milestones, showSuccess, showNe
             </span>
           )}
         </div>
-        {sortedPayload.map((entry: any, index: number) => (
-          <div key={index} className="flex items-center gap-3 mb-1">
-            <div className="w-2 h-2 rounded-full" style={{ backgroundColor: entry.color }}></div>
-            <span className="text-slate-300">{entry.name}:</span>
-            <span className="font-mono font-bold ml-auto" style={{ color: entry.color }}>{fmtK(entry.value)}</span>
-          </div>
-        ))}
+        {sortedPayload.map((entry: any, index: number) => {
+          const isPath = entry.name.includes('Path');
+          return (
+            <div key={index} className={`flex items-center gap-3 mb-1 ${isPath ? 'opacity-60 scale-95 origin-left' : ''}`}>
+              <div className={`w-2 h-2 rounded-full ${isPath ? 'border border-slate-500' : ''}`} style={{ backgroundColor: entry.color }}></div>
+              <span className={`${isPath ? 'text-slate-500 italic' : 'text-slate-300 font-medium'}`}>{entry.name}:</span>
+              <span className="font-mono font-bold ml-auto" style={{ color: entry.color }}>{fmtK(entry.value)}</span>
+            </div>
+          );
+        })}
         {showNetWorth && netWorth !== undefined && (
           <div className="flex items-center gap-3 mt-2 pt-2 border-t border-slate-700">
             <div className="w-2 h-2 rounded-full bg-emerald-400"></div>
@@ -113,20 +116,24 @@ export const LifetimeAreaChart = ({ data, series, milestones, retirementAge, fir
         ))}
 
         {/* Sample Runs (Historical Patterns) */}
-        {data[0]?.sampleRuns && [0, 1, 2].map(i => (
-          <Area 
-            key={`run-${i}`}
-            type="monotone" 
-            dataKey={(row) => row.sampleRuns?.[i]} 
-            stroke="#56e39f" 
-            strokeWidth={0.5}
-            fill="transparent"
-            strokeOpacity={0.3}
-            dot={false}
-            activeDot={false}
-            name={i === 0 ? "Actual Path (Ended Bottom 5%)" : i === 1 ? "Actual Path (Ended Median)" : "Actual Path (Ended Top 5%)"}
-          />
-        ))}
+        {data[0]?.sampleRuns && [0, 1, 2].map(i => {
+          const colors = ['#ef4444', '#38bdf8', '#10b981'];
+          const labels = ['Unlucky Path (P5)', 'Median Path (P50)', 'Lucky Path (P95)'];
+          return (
+            <Area 
+              key={`run-${i}`}
+              type="monotone" 
+              dataKey={(row) => row.sampleRuns?.[i]} 
+              stroke={colors[i]} 
+              strokeWidth={1}
+              fill="transparent"
+              strokeOpacity={0.4}
+              dot={false}
+              activeDot={false}
+              name={labels[i]}
+            />
+          );
+        })}
 
         {series.map((s: any) => (
           <Area 
