@@ -86,8 +86,7 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
       .filter(i => age >= i.startAge && age < i.endAge)
       .reduce((sum, i) => {
         const gr = i.growthRate / 100;
-        const yearsSinceStart = Math.max(0, age - i.startAge);
-        const grown = i.isFixed ? 1 : Math.pow(1 + gr, yearsSinceStart);
+        const grown = i.isFixed ? 1 : Math.pow(1 + gr, yearsIn);
         return sum + (i.freq === 'monthly' ? i.amount * 12 : i.amount) * grown;
       }, 0);
 
@@ -98,8 +97,7 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
     resolvedExp
       .filter(e => age >= e.startAge && age < e.endAge)
       .forEach(e => {
-        const yearsSinceStart = Math.max(0, age - e.startAge);
-        const factor = e.isFixed ? 1 : Math.pow(1 + profile.inflationRate / 100, yearsSinceStart);
+        const factor = e.isFixed ? 1 : Math.pow(1 + profile.inflationRate / 100, yearsIn);
         const amount = (e.freq === 'monthly' ? e.amount * 12 : e.amount) * factor;
         
         if (e.duringRetirement) {
