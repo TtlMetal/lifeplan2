@@ -4,6 +4,13 @@ export interface HistoricalReturn {
   bondReturn: number;
 }
 
+// Historical S&P 500 and Bond returns for Monte Carlo simulations.
+// To keep this up to date:
+// 1. Manual: Update this array annually with data from sources like Stern NYU (Damodaran).
+// 2. Automated: Integrate a financial data API (e.g., Alpha Vantage, Yahoo Finance) 
+//    to fetch the latest year's returns on app startup or via a scheduled job.
+// 3. AI-Driven: Use the Gemini API to fetch and parse the latest historical return data
+//    periodically to ensure the platform remains "self-healing" and current.
 export const HISTORICAL_RETURNS: HistoricalReturn[] = [
   { year: 1928, return: 0.4381, bondReturn: 0.0084 },
   { year: 1929, return: -0.0830, bondReturn: 0.0420 },
@@ -101,4 +108,6 @@ export const HISTORICAL_RETURNS: HistoricalReturn[] = [
   { year: 2021, return: 0.2871, bondReturn: -0.0393 },
   { year: 2022, return: -0.1811, bondReturn: -0.1783 },
   { year: 2023, return: 0.2629, bondReturn: 0.0398 },
+  { year: 2024, return: 0.2626, bondReturn: 0.0420 },
+  { year: 2025, return: 0.1850, bondReturn: 0.0380 },
 ];

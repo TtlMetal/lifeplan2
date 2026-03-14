@@ -2,7 +2,7 @@ import React from 'react';
 import { AppData, RetirementConfig } from '../types';
 import { fmtK, fmtUSD, fmtPct } from '../utils';
 import { LifetimeAreaChart } from './ChartComponents';
-import { Info } from 'lucide-react';
+import { Info, AlertTriangle } from 'lucide-react';
 
 interface RetirementPageProps {
   data: AppData;
@@ -15,6 +15,34 @@ export const RetirementPage = ({ data, derived, setRetirement }: RetirementPageP
   const p = data.profile;
   const ret = data.retirement;
   const firePct = Math.min(100, (totalNW / fireNum) * 100);
+
+  const currentDiscretionaryPct = React.useMemo(() => {
+    const visibleExpenses = data.expenses.filter(e => !e.isHidden);
+    
+    // Calculate based on expenses active at the start of retirement
+    const retAge = data.profile.retirementAge;
+    let activeExpenses = visibleExpenses.filter(e => retAge >= e.startAge && retAge < e.endAge);
+    
+    // Fallback to current age if no expenses at retirement age
+    if (activeExpenses.length === 0) {
+      activeExpenses = visibleExpenses.filter(e => data.profile.currentAge >= e.startAge && data.profile.currentAge < e.endAge);
+    }
+    // Fallback to all visible if still empty
+    if (activeExpenses.length === 0) {
+      activeExpenses = visibleExpenses;
+    }
+
+    const total = activeExpenses.reduce((sum, e) => sum + (e.freq === 'monthly' ? e.amount : e.amount / 12), 0);
+    if (total === 0) return 30;
+    
+    const discretionary = activeExpenses
+      .filter(e => e.flexibility === 'discretionary')
+      .reduce((sum, e) => sum + (e.freq === 'monthly' ? e.amount : e.amount / 12), 0);
+      
+    return Math.round((discretionary / total) * 100);
+  }, [data.expenses, data.profile.retirementAge, data.profile.currentAge]);
+
+  const displayFlexScore = ret.flexibilityScore ?? currentDiscretionaryPct;
 
   const updateConfig = (updates: Partial<RetirementConfig>) => {
     setRetirement({ ...ret, ...updates });
@@ -59,7 +87,10 @@ export const RetirementPage = ({ data, derived, setRetirement }: RetirementPageP
             {!ret.useCustom ? (
               <div className="space-y-4 pt-4">
                 <div className="flex items-center justify-between">
-                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">% of current monthly expenses</label>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Lifestyle Multiplier</label>
+                    <p className="text-[9px] text-slate-600 uppercase tracking-widest">Base retirement spend relative to today</p>
+                  </div>
                   <span className="text-xl font-black font-mono text-emerald-400">{ret.expenseRatio}%</span>
                 </div>
                 <input 
@@ -76,18 +107,87 @@ export const RetirementPage = ({ data, derived, setRetirement }: RetirementPageP
                   <span>100% Same</span>
                   <span>150% Lavish</span>
                 </div>
+                
+                <div className="p-3 rounded-xl bg-emerald-500/5 border border-emerald-500/10 space-y-2 mt-2">
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 uppercase tracking-widest">Current Lifestyle</span>
+                    <span className="text-slate-300 font-mono">{fmtUSD(derived.mExp)}/mo</span>
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-slate-500 uppercase tracking-widest">Base Target ({ret.expenseRatio}%)</span>
+                    <span className="text-emerald-400 font-mono">+{fmtUSD(derived.mExp * ret.expenseRatio / 100)}/mo</span>
+                  </div>
+                  {derived.mRetSpecificExp > 0 && (
+                    <div className="flex justify-between text-[10px]">
+                      <span className="text-slate-500 uppercase tracking-widest">Retirement-Only Items</span>
+                      <span className="text-emerald-400 font-mono">+{fmtUSD(derived.mRetSpecificExp)}/mo</span>
+                    </div>
+                  )}
+                  <div className="pt-2 border-t border-emerald-500/20 flex justify-between text-[10px] font-bold">
+                    <span className="text-slate-300 uppercase tracking-widest">Total Retirement Target</span>
+                    <span className="text-emerald-400 font-mono">{fmtUSD(retMonthly)}/mo</span>
+                  </div>
+                  <p className="text-[9px] text-slate-500 italic leading-tight pt-1">
+                    This total is your "Purchasing Power" target. The engine will automatically inflate this amount to match the cost of living in the future.
+                  </p>
+                </div>
               </div>
             ) : (
               <div className="space-y-2 pt-4">
-                <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Custom Monthly Spending ($)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Custom Monthly Spending ($)</label>
+                  <p className="text-[9px] text-slate-500 italic">Today's Dollars</p>
+                </div>
                 <input 
                   type="number" 
                   value={ret.customMonthly || ''} 
                   onChange={(e) => updateConfig({ customMonthly: parseInt(e.target.value) || 0 })}
                   className="w-full bg-bg border border-border-2 rounded-xl p-3 text-sm font-bold text-emerald-400 focus:border-emerald-400 transition-all outline-none"
                 />
+                <p className="text-[9px] text-slate-500 italic leading-tight">
+                  The engine will automatically inflate this amount to match the cost of living at your retirement age.
+                </p>
               </div>
             )}
+
+            <div className="space-y-4 p-4 rounded-xl bg-surface-2 border border-border mt-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Flexibility Score</p>
+                  <p className="text-[9px] text-slate-600 uppercase tracking-widest">% of retirement spending that is "Discretionary"</p>
+                </div>
+                <div className="text-right">
+                  <span className="text-xl font-black font-mono text-sky-400">{displayFlexScore}%</span>
+                  <p className="text-[9px] text-slate-600 uppercase tracking-widest">Current Itemized: {currentDiscretionaryPct}%</p>
+                </div>
+              </div>
+              <input 
+                type="range" 
+                min="0" 
+                max="100" 
+                step="5" 
+                value={displayFlexScore} 
+                onChange={(e) => updateConfig({ flexibilityScore: parseInt(e.target.value) })}
+                className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-sky-400"
+              />
+              <div className="flex justify-between text-[9px] font-bold text-slate-600 uppercase tracking-widest">
+                <div className="flex items-center gap-2">
+                  <span>0% Rigid</span>
+                  {ret.flexibilityScore !== undefined && ret.flexibilityScore !== currentDiscretionaryPct && (
+                    <button 
+                      onClick={() => updateConfig({ flexibilityScore: currentDiscretionaryPct })}
+                      className="px-1.5 py-0.5 rounded bg-slate-800 hover:bg-slate-700 text-sky-400 transition-colors border border-sky-400/20"
+                    >
+                      Match Expenses ({currentDiscretionaryPct}%)
+                    </button>
+                  )}
+                </div>
+                <span>100% Flexible</span>
+              </div>
+              <p className="text-xs text-slate-400 italic leading-relaxed">
+                This determines how much of your retirement budget can be cut during market downturns if Guardrails are enabled.
+              </p>
+            </div>
           </div>
 
           <div className="pt-8 border-t border-border space-y-6">
@@ -177,6 +277,36 @@ export const RetirementPage = ({ data, derived, setRetirement }: RetirementPageP
             </div>
           </div>
 
+          <div className="pt-8 border-t border-border space-y-6">
+            <div className="space-y-2">
+              <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center justify-between">
+                <div className="flex items-center gap-1">
+                  Dynamic Spending (Guardrails)
+                  <div className="group relative">
+                    <Info size={12} className="text-slate-600 cursor-help" />
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 p-3 bg-slate-800 border border-border rounded-lg text-[10px] text-slate-400 font-normal normal-case tracking-normal invisible group-hover:visible z-50 shadow-xl">
+                      When enabled, the projection will automatically reduce your "Discretionary" expenses during severe market downturns (drawdowns). This mimics real-world behavior where retirees tighten their belts during a crash, significantly improving plan success rates.
+                    </div>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => updateConfig({ enableGuardrails: !ret.enableGuardrails })}
+                  className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${ret.enableGuardrails ? 'bg-emerald-500' : 'bg-slate-700'}`}
+                >
+                  <span className={`inline-block h-3 w-3 transform rounded-full bg-white transition-transform ${ret.enableGuardrails ? 'translate-x-5' : 'translate-x-1'}`} />
+                </button>
+              </div>
+              <p className="text-[10px] text-slate-600 uppercase tracking-widest">Automatically cut discretionary spending during market crashes</p>
+            </div>
+            {ret.enableGuardrails && (
+              <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+                <p className="text-[10px] text-slate-400 leading-relaxed italic">
+                  During retirement, if your portfolio drops <span className="text-emerald-400 font-bold">20%</span> below its peak, discretionary expenses are cut by <span className="text-emerald-400 font-bold">25%</span>. If it drops <span className="text-emerald-400 font-bold">40%</span>, they are cut by <span className="text-emerald-400 font-bold">50%</span>. Essential expenses are never cut.
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="p-4 rounded-xl bg-surface-2 border border-border space-y-3">
             <div className="flex justify-between items-center text-xs">
               <span className="text-slate-500">Current monthly expenses</span>
@@ -229,7 +359,16 @@ export const RetirementPage = ({ data, derived, setRetirement }: RetirementPageP
           <div className="p-6 rounded-2xl border border-border bg-sky-500/5">
             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-500 mb-2">FIRE Age</p>
             <p className="text-3xl font-black font-mono tracking-tighter text-sky-400">{fireAge ?? '—'}</p>
-            <p className="text-xs text-slate-500 mt-1">{fireAge ? `${fireAge - p.currentAge} years away` : 'Increase savings or lower target'}</p>
+            <div className="text-xs text-slate-500 mt-1 flex items-center gap-1.5">
+              {fireAge ? (
+                <span>{fireAge - p.currentAge} years away</span>
+              ) : (
+                <>
+                  <AlertTriangle size={12} className="text-amber-500" />
+                  <span>Increase savings or lower target</span>
+                </>
+              )}
+            </div>
           </div>
           <div className={`p-6 rounded-2xl border border-border ${
             actualWR <= ret.withdrawalRate ? 'bg-emerald-500/5' : actualWR <= ret.withdrawalRate * 1.25 ? 'bg-amber-500/5' : 'bg-red-500/5'

@@ -37,16 +37,17 @@ function mulberry32(a: number) {
 }
 
 function getAnnualIncrease(account: Account, yearsIn: number): number {
-  if (!account.annualIncrease) return 0;
-  const interval = account.annualIncreaseInterval || 1;
+  const annualIncrease = Number(account.annualIncrease || 0);
+  if (annualIncrease === 0) return 0;
+  const interval = Math.max(1, Number(account.annualIncreaseInterval || 1));
   const periods = Math.floor(yearsIn / interval);
   if (periods <= 0) return 0;
   
-  const baseContrib = account.contributionFreq === 'annual' ? account.contribution : account.contribution * 12;
+  const baseContrib = account.contributionFreq === 'annual' ? Number(account.contribution) : Number(account.contribution) * 12;
   if (account.annualIncreaseType === 'percent') {
-    return baseContrib * Math.pow(1 + account.annualIncrease / 100, periods) - baseContrib;
+    return baseContrib * Math.pow(1 + annualIncrease / 100, periods) - baseContrib;
   } else {
-    return periods * account.annualIncrease;
+    return periods * annualIncrease;
   }
 }
 
@@ -57,6 +58,23 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
   const activeExpenses = expenses.filter(e => !e.isHidden);
   const activeMilestones = milestones.filter(m => !m.isHidden);
   
+  const currentDiscretionaryPct = (() => {
+    const retAge = profile.retirementAge;
+    let activeAtRet = activeExpenses.filter(e => retAge >= e.startAge && retAge < e.endAge);
+    if (activeAtRet.length === 0) {
+      activeAtRet = activeExpenses.filter(e => profile.currentAge >= e.startAge && profile.currentAge < e.endAge);
+    }
+    if (activeAtRet.length === 0) {
+      activeAtRet = activeExpenses;
+    }
+    const total = activeAtRet.reduce((sum, e) => sum + (e.freq === 'monthly' ? e.amount : e.amount / 12), 0);
+    if (total === 0) return 30;
+    const discretionary = activeAtRet
+      .filter(e => e.flexibility === 'discretionary')
+      .reduce((sum, e) => sum + (e.freq === 'monthly' ? e.amount : e.amount / 12), 0);
+    return Math.round((discretionary / total) * 100);
+  })();
+
   const retRatio = retirement.expenseRatio / 100;
   const resolvedExp = resolveExpenses(activeExpenses, profile.retirementAge, profile.lifeExpectancy);
   const rows: ProjectionRow[] = [];
@@ -67,6 +85,10 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
   // Initialize balances for each run
   let runBalances = Array.from({ length: runs }, () => 
     activeAccounts.reduce((acc, a) => ({ ...acc, [a.id]: a.balance }), {} as Record<string, number>)
+  );
+
+  const runPeakNetWorth: number[] = Array.from({ length: runs }, () => 
+    activeAccounts.reduce((acc, a) => acc + a.balance, 0)
   );
 
   // For Monte Carlo, assign each run a random starting year from historical data
@@ -91,71 +113,126 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
       }, 0);
 
     // Expenses calculation
-    let baseExp = 0;
-    let retSpecificExp = 0;
+    let baseEssentialExp = 0;
+    let baseDiscretionaryExp = 0;
+    let retSpecificEssentialExp = 0;
+    let retSpecificDiscretionaryExp = 0;
     
     resolvedExp
       .filter(e => age >= e.startAge && age < e.endAge)
       .forEach(e => {
         const factor = e.isFixed ? 1 : Math.pow(1 + profile.inflationRate / 100, yearsIn);
         const amount = (e.freq === 'monthly' ? e.amount * 12 : e.amount) * factor;
+        const isEssential = e.flexibility !== 'discretionary';
         
         if (e.duringRetirement) {
-          retSpecificExp += amount;
+          if (isEssential) retSpecificEssentialExp += amount;
+          else retSpecificDiscretionaryExp += amount;
         } else {
-          baseExp += amount;
+          if (isEssential) baseEssentialExp += amount;
+          else baseDiscretionaryExp += amount;
         }
       });
     
-    let annExp = baseExp + retSpecificExp;
+    let essentialExp = 0;
+    let discretionaryExp = 0;
+
     if (retired) {
+      let totalRetirementSpend = 0;
       if (retirement.useCustom && retirement.customMonthly !== null) {
         // Inflate custom monthly from current age to this age
         const yearsFromNow = Math.max(0, age - profile.currentAge);
         const factor = Math.pow(1 + profile.inflationRate / 100, yearsFromNow);
-        annExp = (retirement.customMonthly * 12) * factor;
+        totalRetirementSpend = (retirement.customMonthly * 12) * factor;
       } else {
-        annExp = (baseExp * retRatio) + retSpecificExp;
+        totalRetirementSpend = (baseEssentialExp + baseDiscretionaryExp) * retRatio + retSpecificEssentialExp + retSpecificDiscretionaryExp;
       }
+
+      const flexScore = (retirement.flexibilityScore ?? currentDiscretionaryPct) / 100;
+      discretionaryExp = totalRetirementSpend * flexScore;
+      essentialExp = totalRetirementSpend - discretionaryExp;
+    } else {
+      essentialExp = baseEssentialExp + retSpecificEssentialExp;
+      discretionaryExp = baseDiscretionaryExp + retSpecificDiscretionaryExp;
     }
 
     // Milestone impact
     const milestone = activeMilestones.find(m => m.age === age);
     const mImpact = milestone ? milestone.impact : 0;
     
-    // Net Cash Flow (Income - Expenses + One-time Milestone Impact)
-    const netCF = annIncome - annExp + mImpact;
-    
-    let annualContributions = 0;
-    let additionalInvestment = 0;
-
-    if (!retired) {
-      const baseContrib = activeAccounts.reduce((s, a) => {
-        const increase = getAnnualIncrease(a, yearsIn);
-        const baseC = a.contributionFreq === 'annual' ? a.contribution : a.contribution * 12;
-        const currentContrib = Math.max(0, baseC + increase);
-        return s + currentContrib + (a.match * 12);
-      }, 0);
-      const totalNonDeferredContrib = activeAccounts.filter(a => a.type !== 'tax_deferred').reduce((s, a) => {
-        const increase = getAnnualIncrease(a, yearsIn);
-        const baseC = a.contributionFreq === 'annual' ? a.contribution : a.contribution * 12;
-        const currentContrib = Math.max(0, baseC + increase);
-        return s + currentContrib + (a.match * 12);
-      }, 0);
-      const leftover = netCF - totalNonDeferredContrib;
-      const investRate = (retirement.investLeftoverRate || 0) / 100;
-      
-      additionalInvestment = leftover > 0 ? leftover * investRate : leftover;
-      annualContributions = baseContrib + additionalInvestment;
-    } else {
-      annualContributions = netCF; // In retirement, netCF is what goes in/out of accounts
-    }
+    let sumActualExp = 0;
+    let sumEssential = 0;
+    let sumDiscretionary = 0;
+    let sumNetCF = 0;
+    let sumAnnualContrib = 0;
 
     // 1. Calculate start totals
     const startTotals = runBalances.map(balances => activeAccounts.reduce((s, a) => s + balances[a.id], 0));
 
     // 2. Apply growth/contribs/netCF
     const endTotals = runBalances.map((balances, runIndex) => {
+      let currentNW = startTotals[runIndex];
+      if (currentNW > runPeakNetWorth[runIndex]) {
+        runPeakNetWorth[runIndex] = currentNW;
+      }
+      
+      let drawdown = 0;
+      if (runPeakNetWorth[runIndex] > 0) {
+        drawdown = (runPeakNetWorth[runIndex] - currentNW) / runPeakNetWorth[runIndex];
+      }
+
+      let cut = 0;
+      if (retirement.enableGuardrails && retired) {
+        if (drawdown >= 0.40) cut = 0.50; // 50% cut to discretionary
+        else if (drawdown >= 0.20) cut = 0.25; // 25% cut to discretionary
+      }
+
+      let actualDiscretionary = discretionaryExp * (1 - cut);
+      let actualExp = essentialExp + actualDiscretionary;
+      let netCF = annIncome - actualExp + mImpact;
+
+      let annualContributions = 0;
+      let plannedContributions = 0;
+      let extraInvestment = 0;
+
+      if (!retired) {
+        plannedContributions = activeAccounts.reduce((s, a) => {
+          const increase = getAnnualIncrease(a, yearsIn);
+          const baseC = a.contributionFreq === 'annual' ? Number(a.contribution) : Number(a.contribution) * 12;
+          return s + Math.max(0, baseC + increase) + (Number(a.match) * 12);
+        }, 0);
+
+        // Correct leftover calculation: netCF is the total surplus before non-deferred contributions.
+        // Tax-deferred contributions (like 401k) are assumed to be pre-tax and already deducted from take-home pay.
+        // Employer match is also not paid from take-home pay.
+        const nonDeferredContributions = activeAccounts.reduce((s, a) => {
+          if (a.type === 'tax_deferred') return s;
+          const increase = getAnnualIncrease(a, yearsIn);
+          const baseC = a.contributionFreq === 'annual' ? Number(a.contribution) : Number(a.contribution) * 12;
+          return s + Math.max(0, baseC + increase);
+        }, 0);
+
+        const surplus = netCF - nonDeferredContributions;
+        const investRate = (retirement.investLeftoverRate || 0) / 100;
+        
+        // If surplus is positive, we invest a portion of it.
+        // If negative, it's a shortfall that must be drawn from taxable accounts.
+        extraInvestment = surplus > 0 ? surplus * investRate : surplus;
+        
+        // The value shown in the "Contributions" column should be the planned amount plus any extra invested.
+        annualContributions = plannedContributions + (extraInvestment > 0 ? extraInvestment : 0);
+      } else {
+        annualContributions = netCF; // In retirement, netCF is what goes in/out of accounts
+        plannedContributions = 0;
+        extraInvestment = netCF;
+      }
+
+      sumActualExp += actualExp;
+      sumEssential += essentialExp;
+      sumDiscretionary += actualDiscretionary;
+      sumNetCF += netCF;
+      sumAnnualContrib += annualContributions;
+
       let total = 0;
       for (const acc of activeAccounts) {
         // Apply market return. 
@@ -184,51 +261,99 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
             r = profile.marketReturn / 100;
           }
         }
-        
-        balances[acc.id] = Math.max(0, balances[acc.id] * (1 + r));
-        
+
+        let balance = balances[acc.id];
+        balance *= (1 + r);
+
         if (!retired) {
-          // Specified contributions
           const increase = getAnnualIncrease(acc, yearsIn);
-          const baseC = acc.contributionFreq === 'annual' ? acc.contribution : acc.contribution * 12;
-          const specContrib = Math.max(0, baseC + increase) + (acc.match * 12);
-          balances[acc.id] += specContrib;
+          const baseC = acc.contributionFreq === 'annual' ? Number(acc.contribution) : Number(acc.contribution) * 12;
+          const currentContrib = Math.max(0, baseC + increase);
+          const totalC = currentContrib + (Number(acc.match) * 12);
+          
+          // Always add the full target contribution
+          balance += totalC;
         }
-        
-        total += balances[acc.id];
+
+        balance = Math.max(0, balance);
+        balances[acc.id] = balance;
+        total += balance;
       }
 
       // Handle leftover cash flow or deficit
       if (!retired) {
-        if (additionalInvestment > 0) {
-          // Invest in taxable accounts only
+        if (extraInvestment > 0) {
+          // Invest in taxable accounts only (not cash, as cash has 0% return)
           const taxableAccounts = activeAccounts.filter(a => a.type === 'taxable');
           const totalTaxableBalance = taxableAccounts.reduce((s, a) => s + balances[a.id], 0);
           
           if (taxableAccounts.length > 0) {
             for (const acc of taxableAccounts) {
               const share = totalTaxableBalance > 0 ? balances[acc.id] / totalTaxableBalance : 1 / taxableAccounts.length;
-              balances[acc.id] = Math.max(0, balances[acc.id] + (additionalInvestment * share));
+              balances[acc.id] = Math.max(0, balances[acc.id] + (extraInvestment * share));
             }
           } else {
-            // Fallback: if no taxable accounts, distribute across all accounts proportionally
-            for (const acc of activeAccounts) {
-              const share = total > 0 ? balances[acc.id] / total : 1 / activeAccounts.length;
-              balances[acc.id] = Math.max(0, balances[acc.id] + (additionalInvestment * share));
+            // Fallback: if no taxable accounts, distribute across non-cash accounts
+            const nonCashAccounts = activeAccounts.filter(a => a.type !== 'cash');
+            if (nonCashAccounts.length > 0) {
+              const totalNonCash = nonCashAccounts.reduce((s, a) => s + balances[a.id], 0);
+              for (const acc of nonCashAccounts) {
+                const share = totalNonCash > 0 ? balances[acc.id] / totalNonCash : 1 / nonCashAccounts.length;
+                balances[acc.id] = Math.max(0, balances[acc.id] + (extraInvestment * share));
+              }
+            } else {
+              // Absolute fallback
+              for (const acc of activeAccounts) {
+                const share = total > 0 ? balances[acc.id] / total : 1 / activeAccounts.length;
+                balances[acc.id] = Math.max(0, balances[acc.id] + (extraInvestment * share));
+              }
             }
           }
-        } else if (additionalInvestment < 0) {
+        } else if (extraInvestment < 0) {
           // Deficit, distribute across all accounts proportionally to balance
           for (const acc of activeAccounts) {
             const share = total > 0 ? balances[acc.id] / total : 1 / activeAccounts.length;
-            balances[acc.id] = Math.max(0, balances[acc.id] + (additionalInvestment * share));
+            balances[acc.id] = Math.max(0, balances[acc.id] + (extraInvestment * share));
           }
         }
       } else {
-        // In retirement, withdraw netCF (which is usually negative) proportionally
-        for (const acc of activeAccounts) {
-          const share = total > 0 ? balances[acc.id] / total : 1 / activeAccounts.length;
-          balances[acc.id] = Math.max(0, balances[acc.id] + (netCF * share));
+        // In retirement, distribute netCF across accounts
+        const taxableAccounts = activeAccounts.filter(a => a.type === 'taxable' || a.type === 'cash');
+        const deferredAccounts = activeAccounts.filter(a => a.type === 'tax_deferred');
+        
+        if (netCF < 0) {
+          // Draw from taxable first, then deferred
+          const totalTaxable = taxableAccounts.reduce((s, a) => s + balances[a.id], 0);
+          if (totalTaxable >= Math.abs(netCF)) {
+            for (const acc of taxableAccounts) {
+              const share = totalTaxable > 0 ? balances[acc.id] / totalTaxable : 1 / taxableAccounts.length;
+              balances[acc.id] = Math.max(0, balances[acc.id] + (netCF * share));
+            }
+          } else {
+            const remaining = Math.abs(netCF) - totalTaxable;
+            for (const acc of taxableAccounts) {
+              balances[acc.id] = 0;
+            }
+            const totalDeferred = deferredAccounts.reduce((s, a) => s + balances[a.id], 0);
+            for (const acc of deferredAccounts) {
+              const share = totalDeferred > 0 ? balances[acc.id] / totalDeferred : 1 / deferredAccounts.length;
+              balances[acc.id] = Math.max(0, balances[acc.id] - (remaining * share));
+            }
+          }
+        } else if (netCF > 0) {
+          // Surplus in retirement: add to taxable
+          if (taxableAccounts.length > 0) {
+            const totalTaxable = taxableAccounts.reduce((s, a) => s + balances[a.id], 0);
+            for (const acc of taxableAccounts) {
+              const share = totalTaxable > 0 ? balances[acc.id] / totalTaxable : 1 / taxableAccounts.length;
+              balances[acc.id] = Math.max(0, balances[acc.id] + (netCF * share));
+            }
+          } else {
+            for (const acc of activeAccounts) {
+              const share = total > 0 ? balances[acc.id] / total : 1 / activeAccounts.length;
+              balances[acc.id] = Math.max(0, balances[acc.id] + (netCF * share));
+            }
+          }
         }
       }
 
@@ -238,6 +363,12 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
       return finalTotal;
     });
 
+    const avgActualExp = sumActualExp / runs;
+    const avgEssential = sumEssential / runs;
+    const avgDiscretionary = sumDiscretionary / runs;
+    const avgNetCF = sumNetCF / runs;
+    const avgAnnualContrib = sumAnnualContrib / runs;
+
     const sorted = [...endTotals].sort((a, b) => a - b);
     
     rows.push({
@@ -245,9 +376,11 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
       retired,
       annIncome,
       annualIncome: annIncome,
-      annualExpenses: annExp,
-      netCF,
-      annualContributions,
+      annualExpenses: avgActualExp,
+      essentialExpenses: avgEssential,
+      discretionaryExpenses: avgDiscretionary,
+      netCF: avgNetCF,
+      annualContributions: avgAnnualContrib,
       mImpact,
       netWorth: startTotals[0],
       p10: sorted[Math.floor(sorted.length * 0.1)],

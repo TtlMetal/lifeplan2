@@ -81,6 +81,12 @@ export const IncomeExpensesPage = ({ type, items, milestones, onAdd, onEdit, onD
                       {!isIncome && (item as Expense).duringRetirement && (
                         <span className="inline-block whitespace-nowrap px-1.5 py-0.5 rounded bg-sky-500/10 text-sky-400 border border-sky-500/20 text-[9px] font-bold uppercase tracking-widest">Retirement</span>
                       )}
+                      {!isIncome && (item as Expense).flexibility === 'essential' && (
+                        <span className="inline-block whitespace-nowrap px-1.5 py-0.5 rounded bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] font-bold uppercase tracking-widest">Need</span>
+                      )}
+                      {!isIncome && (item as Expense).flexibility === 'discretionary' && (
+                        <span className="inline-block whitespace-nowrap px-1.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold uppercase tracking-widest">Want</span>
+                      )}
                     </div>
                   </td>
                   <td className={`p-3 border-b border-slate-800 font-mono font-bold ${isIncome ? 'text-emerald-400' : 'text-red-400'}`}>

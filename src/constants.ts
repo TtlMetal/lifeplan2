@@ -16,6 +16,7 @@ export const EXPENSE_CATS = [
   'Gym & Fitness',
   'Home Maintenance',
   'Charitable Giving',
+  'Phone',
   'Other'
 ];
 
@@ -33,7 +34,9 @@ export const DEFAULT_DATA: AppData = {
     customMonthly: null,
     useCustom: false,
     withdrawalRate: 4,
-    investLeftoverRate: 50
+    investLeftoverRate: 50,
+    enableGuardrails: true,
+    flexibilityScore: 30
   },
   accounts: [
     { id: '1', name: '401(k)', type: 'tax_deferred', balance: 85000, contribution: 1500, match: 500 },
@@ -47,12 +50,12 @@ export const DEFAULT_DATA: AppData = {
     { id: '3', name: 'Social Security', amount: 2400, freq: 'monthly', startAge: 67, endAge: 90, growthRate: 2 },
   ],
   expenses: [
-    { id: '1', name: 'Housing / Rent', amount: 2200, freq: 'monthly', startAge: 32, endAge: 90, duringRetirement: false },
-    { id: '2', name: 'Food & Groceries', amount: 1200, freq: 'monthly', startAge: 32, endAge: 90, duringRetirement: false },
-    { id: '3', name: 'Transportation', amount: 600, freq: 'monthly', startAge: 32, endAge: 80, duringRetirement: false },
-    { id: '4', name: 'Healthcare / Medical', amount: 400, freq: 'monthly', startAge: 32, endAge: 65, duringRetirement: false },
-    { id: '5', name: 'Healthcare / Medical', amount: 900, freq: 'monthly', startAge: 65, endAge: 90, duringRetirement: true },
-    { id: '6', name: 'Entertainment', amount: 500, freq: 'monthly', startAge: 32, endAge: 85, duringRetirement: false },
+    { id: '1', name: 'Housing / Rent', amount: 2200, freq: 'monthly', startAge: 32, endAge: 90, duringRetirement: false, category: 'Housing / Rent', flexibility: 'essential' },
+    { id: '2', name: 'Food & Groceries', amount: 1200, freq: 'monthly', startAge: 32, endAge: 90, duringRetirement: false, category: 'Food & Groceries', flexibility: 'essential' },
+    { id: '3', name: 'Transportation', amount: 600, freq: 'monthly', startAge: 32, endAge: 80, duringRetirement: false, category: 'Transportation', flexibility: 'essential' },
+    { id: '4', name: 'Healthcare / Medical', amount: 400, freq: 'monthly', startAge: 32, endAge: 65, duringRetirement: false, category: 'Healthcare / Medical', flexibility: 'essential' },
+    { id: '5', name: 'Healthcare / Medical', amount: 900, freq: 'monthly', startAge: 65, endAge: 90, duringRetirement: true, category: 'Healthcare / Medical', flexibility: 'essential' },
+    { id: '6', name: 'Entertainment', amount: 500, freq: 'monthly', startAge: 32, endAge: 85, duringRetirement: false, category: 'Entertainment', flexibility: 'discretionary' },
   ],
   milestones: [
     { id: '1', name: 'Buy Home', age: 35, impact: -80000 },

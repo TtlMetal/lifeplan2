@@ -175,7 +175,8 @@ export const CashFlowBarChart = ({ data, milestones, showSuccess, showNetWorth }
         <Tooltip content={<CustomTooltip milestones={milestones} showSuccess={showSuccess} showNetWorth={showNetWorth} />} />
         
         <Bar dataKey="annualIncome" name="Income" fill="#56e39f" radius={[2, 2, 0, 0]} />
-        <Bar dataKey="annualExpenses" name="Expenses" fill="#f87171" radius={[2, 2, 0, 0]} />
+        <Bar dataKey="essentialExpenses" name="Essential Exp" stackId="exp" fill="#ef4444" />
+        <Bar dataKey="discretionaryExpenses" name="Discretionary Exp" stackId="exp" fill="#fca5a5" radius={[2, 2, 0, 0]} />
         <Bar dataKey="annualContributions" name="Contributions" fill="#38bdf8" radius={[2, 2, 0, 0]} />
       </BarChart>
     </ResponsiveContainer>

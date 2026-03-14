@@ -41,6 +41,8 @@ export interface Expense {
   duringRetirement: boolean;
   isFixed?: boolean;
   isHidden?: boolean;
+  category?: string;
+  flexibility?: 'essential' | 'discretionary';
 }
 
 export interface Milestone {
@@ -66,6 +68,8 @@ export interface RetirementConfig {
   useCustom: boolean;
   withdrawalRate: number;
   investLeftoverRate: number;
+  enableGuardrails?: boolean;
+  flexibilityScore?: number;
 }
 
 export interface AppData {
@@ -94,6 +98,8 @@ export interface ProjectionRow {
   annIncome: number;
   annualIncome: number;
   annualExpenses: number;
+  essentialExpenses?: number;
+  discretionaryExpenses?: number;
   netCF: number;
   annualContributions: number;
   mImpact: number;

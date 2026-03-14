@@ -138,7 +138,7 @@ export default function App() {
 
     const actualWR = retVal > 0 ? (retMonthly * 12) / retVal * 100 : 0;
 
-    return { totalNW, mIncome, mExp, mSave, mSaveNonDeferred, saveRate, retMonthly, fireNum, futureFireNum, retVal, fireAge, actualWR, wRate, proj: projWithFireTarget, activeMilestones };
+    return { totalNW, mIncome, mExp, mSave, mSaveNonDeferred, saveRate, retMonthly, mRetSpecificExp, fireNum, futureFireNum, retVal, fireAge, actualWR, wRate, proj: projWithFireTarget, activeMilestones };
   }, [data, projection]);
 
   // Handlers
@@ -367,7 +367,7 @@ const ModalForm = ({ type, id, data, onSave, onCancel }: any) => {
     if (initial) return { ...initial };
     if (type === 'account') return { name: '', type: 'taxable', balance: 0, contribution: 0, contributionFreq: 'monthly', match: 0, annualIncrease: 0, annualIncreaseType: 'amount', annualIncreaseInterval: 1 };
     if (type === 'income') return { name: '', amount: 0, freq: 'monthly', startAge: data.profile.currentAge, endAge: data.profile.retirementAge, isUntilDeath: false, growthRate: data.profile.inflationRate, duringRetirement: false, isWorkingYears: true };
-    if (type === 'expense') return { name: '', amount: 0, freq: 'monthly', startAge: data.profile.currentAge, endAge: data.profile.lifeExpectancy, isUntilDeath: true, duringRetirement: false };
+    if (type === 'expense') return { name: 'Housing / Rent', amount: 0, freq: 'monthly', startAge: data.profile.currentAge, endAge: data.profile.lifeExpectancy, isUntilDeath: true, duringRetirement: false, category: 'Housing / Rent', flexibility: 'essential' };
     if (type === 'milestone') return { name: '', age: data.profile.currentAge + 5, impact: 0, expenseImpact: 0 };
     return {};
   });
@@ -491,17 +491,51 @@ const ModalForm = ({ type, id, data, onSave, onCancel }: any) => {
           <div className="space-y-1">
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">{type === 'income' ? 'Source' : 'Category'}</label>
             {type === 'expense' ? (
-              <select className="w-full bg-bg border border-border-2 rounded-xl p-3 text-sm font-bold text-slate-200 outline-none focus:border-emerald-400" value={EXPENSE_CATS.includes(formData.name) ? formData.name : 'Other'} onChange={e => update('name', e.target.value)}>
+              <select className="w-full bg-bg border border-border-2 rounded-xl p-3 text-sm font-bold text-slate-200 outline-none focus:border-emerald-400" value={EXPENSE_CATS.includes(formData.name) ? formData.name : 'Other'} onChange={e => {
+                const val = e.target.value;
+                if (val !== 'Other') {
+                  update('name', val);
+                  update('category', val);
+                  const essentialCats = ['Housing / Rent', 'Food & Groceries', 'Transportation', 'Healthcare / Medical', 'Insurance', 'Utilities', 'Childcare / Education', 'Home Maintenance', 'Phone'];
+                  update('flexibility', essentialCats.includes(val) ? 'essential' : 'discretionary');
+                } else {
+                  update('name', 'Other');
+                }
+              }}>
                 {EXPENSE_CATS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             ) : (
               <input className="w-full bg-bg border border-border-2 rounded-xl p-3 text-sm font-bold text-slate-200 outline-none focus:border-emerald-400" value={formData.name} onChange={e => update('name', e.target.value)} />
             )}
           </div>
-          {type === 'expense' && !EXPENSE_CATS.includes(formData.name) && (
+          {type === 'expense' && (formData.name === 'Other' || !EXPENSE_CATS.includes(formData.name)) && (
             <div className="space-y-1">
               <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Custom Name</label>
               <input className="w-full bg-bg border border-border-2 rounded-xl p-3 text-sm font-bold text-slate-200 outline-none focus:border-emerald-400" value={formData.name === 'Other' ? '' : formData.name} onChange={e => update('name', e.target.value)} />
+            </div>
+          )}
+          {type === 'expense' && (
+            <div className="space-y-2 p-4 rounded-xl bg-surface-2 border border-border">
+              <label className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Flexibility (Guardrails)</label>
+              <div className="flex gap-2 mb-1">
+                <button 
+                  onClick={() => update('flexibility', 'essential')} 
+                  className={`flex-1 px-3 py-2 text-[10px] font-bold rounded-lg border transition-all ${formData.flexibility === 'essential' ? 'bg-red-500/10 text-red-400 border-red-400' : 'bg-slate-800 text-slate-400 border-border-2'}`}
+                >
+                  Need (Essential)
+                </button>
+                <button 
+                  onClick={() => update('flexibility', 'discretionary')} 
+                  className={`flex-1 px-3 py-2 text-[10px] font-bold rounded-lg border transition-all ${formData.flexibility === 'discretionary' ? 'bg-sky-500/10 text-sky-400 border-sky-400' : 'bg-slate-800 text-slate-400 border-border-2'}`}
+                >
+                  Want (Discretionary)
+                </button>
+              </div>
+              <p className="text-[9px] text-slate-500 italic">
+                {formData.flexibility === 'essential' 
+                  ? "Essential expenses are never cut during market downturns." 
+                  : "Discretionary expenses will be dynamically reduced during severe market drawdowns if Guardrails are enabled."}
+              </p>
             </div>
           )}
           <div className="grid grid-cols-2 gap-4">
