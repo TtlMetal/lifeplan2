@@ -69,7 +69,6 @@ export interface RetirementConfig {
   withdrawalRate: number;
   investLeftoverRate: number;
   enableGuardrails?: boolean;
-  flexibilityScore?: number;
 }
 
 export interface AppData {

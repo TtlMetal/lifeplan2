@@ -138,19 +138,20 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
     let discretionaryExp = 0;
 
     if (retired) {
-      let totalRetirementSpend = 0;
       if (retirement.useCustom && retirement.customMonthly !== null) {
         // Inflate custom monthly from current age to this age
         const yearsFromNow = Math.max(0, age - profile.currentAge);
         const factor = Math.pow(1 + profile.inflationRate / 100, yearsFromNow);
-        totalRetirementSpend = (retirement.customMonthly * 12) * factor;
+        const customAnnual = (retirement.customMonthly * 12) * factor;
+        
+        // Split custom amount based on current discretionary percentage
+        const flexPct = currentDiscretionaryPct / 100;
+        discretionaryExp = (customAnnual * flexPct) + retSpecificDiscretionaryExp;
+        essentialExp = (customAnnual * (1 - flexPct)) + retSpecificEssentialExp;
       } else {
-        totalRetirementSpend = (baseEssentialExp + baseDiscretionaryExp) * retRatio + retSpecificEssentialExp + retSpecificDiscretionaryExp;
+        discretionaryExp = (baseDiscretionaryExp * retRatio) + retSpecificDiscretionaryExp;
+        essentialExp = (baseEssentialExp * retRatio) + retSpecificEssentialExp;
       }
-
-      const flexScore = (retirement.flexibilityScore ?? currentDiscretionaryPct) / 100;
-      discretionaryExp = totalRetirementSpend * flexScore;
-      essentialExp = totalRetirementSpend - discretionaryExp;
     } else {
       essentialExp = baseEssentialExp + retSpecificEssentialExp;
       discretionaryExp = baseDiscretionaryExp + retSpecificDiscretionaryExp;
@@ -234,33 +235,31 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
       sumAnnualContrib += annualContributions;
 
       let total = 0;
+      
+      // Generate one market return for this run this year
+      let marketR = 0;
+      if (runs > 1) {
+        if (mode === 'historical') {
+          const startYear = runStartYears[runIndex];
+          const currentYearIndex = (HISTORICAL_RETURNS.findIndex(h => h.year === startYear) + yearsIn) % HISTORICAL_RETURNS.length;
+          marketR = HISTORICAL_RETURNS[currentYearIndex].return;
+        } else if (mode === 'allocation') {
+          const startYear = runStartYears[runIndex];
+          const currentYearIndex = (HISTORICAL_RETURNS.findIndex(h => h.year === startYear) + yearsIn) % HISTORICAL_RETURNS.length;
+          const hist = HISTORICAL_RETURNS[currentYearIndex];
+          const stockWeight = age < profile.retirementAge ? 0.8 : 0.6;
+          const bondWeight = 1 - stockWeight;
+          marketR = (hist.return * stockWeight) + (hist.bondReturn * bondWeight);
+        } else {
+          marketR = (profile.marketReturn / 100) + (random() - 0.5) * 0.36;
+        }
+      } else {
+        marketR = profile.marketReturn / 100;
+      }
+
       for (const acc of activeAccounts) {
         // Apply market return. 
-        let r = 0;
-        if (acc.type !== 'cash') {
-          if (runs > 1) {
-            if (mode === 'historical') {
-              const startYear = runStartYears[runIndex];
-              const currentYearIndex = (HISTORICAL_RETURNS.findIndex(h => h.year === startYear) + yearsIn) % HISTORICAL_RETURNS.length;
-              r = HISTORICAL_RETURNS[currentYearIndex].return;
-            } else if (mode === 'allocation') {
-              // Asset Allocation Mode: 80/20 pre-retirement, 60/40 post-retirement
-              const startYear = runStartYears[runIndex];
-              const currentYearIndex = (HISTORICAL_RETURNS.findIndex(h => h.year === startYear) + yearsIn) % HISTORICAL_RETURNS.length;
-              const hist = HISTORICAL_RETURNS[currentYearIndex];
-              
-              const stockWeight = age < profile.retirementAge ? 0.8 : 0.6;
-              const bondWeight = 1 - stockWeight;
-              
-              r = (hist.return * stockWeight) + (hist.bondReturn * bondWeight);
-            } else {
-              // Revert to original uniform distribution logic: base +/- 18%
-              r = (profile.marketReturn / 100) + (runs > 1 ? (random() - 0.5) * 0.36 : 0);
-            }
-          } else {
-            r = profile.marketReturn / 100;
-          }
-        }
+        let r = acc.type === 'cash' ? 0 : marketR;
 
         let balance = balances[acc.id];
         balance *= (1 + r);
@@ -320,9 +319,10 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
         // In retirement, distribute netCF across accounts
         const taxableAccounts = activeAccounts.filter(a => a.type === 'taxable' || a.type === 'cash');
         const deferredAccounts = activeAccounts.filter(a => a.type === 'tax_deferred');
+        const taxFreeAccounts = activeAccounts.filter(a => a.type === 'tax_free');
         
         if (netCF < 0) {
-          // Draw from taxable first, then deferred
+          // Draw from taxable first, then deferred, then tax-free
           const totalTaxable = taxableAccounts.reduce((s, a) => s + balances[a.id], 0);
           if (totalTaxable >= Math.abs(netCF)) {
             for (const acc of taxableAccounts) {
@@ -330,14 +330,28 @@ export function calculateProjection(data: AppData, runs: number = 1, mode: Monte
               balances[acc.id] = Math.max(0, balances[acc.id] + (netCF * share));
             }
           } else {
-            const remaining = Math.abs(netCF) - totalTaxable;
+            let remaining = Math.abs(netCF) - totalTaxable;
             for (const acc of taxableAccounts) {
               balances[acc.id] = 0;
             }
+            
             const totalDeferred = deferredAccounts.reduce((s, a) => s + balances[a.id], 0);
-            for (const acc of deferredAccounts) {
-              const share = totalDeferred > 0 ? balances[acc.id] / totalDeferred : 1 / deferredAccounts.length;
-              balances[acc.id] = Math.max(0, balances[acc.id] - (remaining * share));
+            if (totalDeferred >= remaining) {
+              for (const acc of deferredAccounts) {
+                const share = totalDeferred > 0 ? balances[acc.id] / totalDeferred : 1 / deferredAccounts.length;
+                balances[acc.id] = Math.max(0, balances[acc.id] - (remaining * share));
+              }
+            } else {
+              remaining -= totalDeferred;
+              for (const acc of deferredAccounts) {
+                balances[acc.id] = 0;
+              }
+              
+              const totalTaxFree = taxFreeAccounts.reduce((s, a) => s + balances[a.id], 0);
+              for (const acc of taxFreeAccounts) {
+                const share = totalTaxFree > 0 ? balances[acc.id] / totalTaxFree : 1 / taxFreeAccounts.length;
+                balances[acc.id] = Math.max(0, balances[acc.id] - (remaining * share));
+              }
             }
           }
         } else if (netCF > 0) {

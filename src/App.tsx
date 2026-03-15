@@ -113,9 +113,9 @@ export default function App() {
         return s + (e.freq === 'monthly' ? e.amount : e.amount / 12);
       }, 0);
 
-    const retMonthly = ret.useCustom && ret.customMonthly !== null 
+    const retMonthly = (ret.useCustom && ret.customMonthly !== null 
       ? ret.customMonthly 
-      : (mExp * (ret.expenseRatio / 100)) + mRetSpecificExp;
+      : (mExp * (ret.expenseRatio / 100))) + mRetSpecificExp;
     
     const fireNum = (retMonthly * 12) / wRate;
     const inflationFactor = Math.pow(1 + p.inflationRate / 100, p.retirementAge - p.currentAge);

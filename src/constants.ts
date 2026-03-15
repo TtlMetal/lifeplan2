@@ -35,8 +35,7 @@ export const DEFAULT_DATA: AppData = {
     useCustom: false,
     withdrawalRate: 4,
     investLeftoverRate: 50,
-    enableGuardrails: true,
-    flexibilityScore: 30
+    enableGuardrails: true
   },
   accounts: [
     { id: '1', name: '401(k)', type: 'tax_deferred', balance: 85000, contribution: 1500, match: 500 },
