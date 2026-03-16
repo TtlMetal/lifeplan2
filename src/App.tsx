@@ -285,6 +285,7 @@ export default function App() {
             <IncomeExpensesPage 
               type="income"
               items={data.income}
+              setItems={(items) => setData(prev => ({ ...prev, income: items as Income[] }))}
               milestones={derived.activeMilestones}
               onAdd={() => setModalState({ isOpen: true, type: 'income', id: null })}
               onEdit={(id) => setModalState({ isOpen: true, type: 'income', id })}
@@ -300,6 +301,7 @@ export default function App() {
             <IncomeExpensesPage 
               type="expense"
               items={data.expenses}
+              setItems={(items) => setData(prev => ({ ...prev, expenses: items as Expense[] }))}
               milestones={derived.activeMilestones}
               onAdd={() => setModalState({ isOpen: true, type: 'expense', id: null })}
               onEdit={(id) => setModalState({ isOpen: true, type: 'expense', id })}

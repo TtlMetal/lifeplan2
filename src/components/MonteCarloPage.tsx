@@ -69,7 +69,7 @@ export const MonteCarloPage = ({ data, derived }: MonteCarloPageProps) => {
               <span className="font-black tracking-tight text-slate-100">Historical (S&P 500)</span>
             </div>
             <p className="text-xs text-slate-500 leading-relaxed">
-              Uses actual sequences of S&P 500 returns from <strong>1928–2023</strong>. Captures real-world market cycles and "Sequence of Returns" risk.
+              Uses actual sequences of S&P 500 returns from <strong>1928–2025</strong>. Captures real-world market cycles and "Sequence of Returns" risk.
             </p>
           </button>
 
@@ -314,8 +314,8 @@ export const MonteCarloPage = ({ data, derived }: MonteCarloPageProps) => {
             <div className="space-y-4">
               <p className="text-sm font-bold text-slate-200">Simulation Methodology</p>
               <p className="text-xs text-slate-500 leading-relaxed">
-                This simulation uses a <strong>Historical Bootstrap</strong> approach. Instead of assuming a normal distribution of returns, it pulls from the actual annual total returns of the {mode === 'allocation' ? 'S&P 500 and 10-Year Treasuries' : 'S&P 500'} from 1928 to 2023. 
-                Each of the 500 runs picks a random starting year and follows the sequence of historical returns that followed, wrapping back to 1928 if the sequence reaches 2023.
+                This simulation uses a <strong>Historical Bootstrap</strong> approach. Instead of assuming a normal distribution of returns, it pulls from the actual annual total returns of the {mode === 'allocation' ? 'S&P 500 and 10-Year Treasuries' : 'S&P 500'} from 1928 to 2025. 
+                Each of the 500 runs picks a random starting year and follows the sequence of historical returns that followed, wrapping back to 1928 if the sequence reaches 2025.
               </p>
               <div className="p-4 rounded-xl bg-slate-900/50 border border-border space-y-3">
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Sample Path Starting Years</p>
